@@ -121,112 +121,134 @@ class OrganizationDataFetcher:
 
     def extract_members(self, wiki_content):
         """
-        Extract member information from Wikipedia content using multiple techniques:
-        1. Section-based extraction
-        2. Named Entity Recognition
-        3. Pattern matching for roles and positions
+        Extracts {name, role} from the text, but ensures 'name' is cleaned up
+        using spaCy's PERSON-labeled entity(ies). If multiple names or sub-entities
+        appear, we pick the largest or first that spaCy finds.
         """
         members = []
-        seen_names = set()  # Avoid duplicates
+        seen_names = {}
 
         def clean_text(text):
-            """Clean and normalize text for processing"""
-            # Remove references [1], [2], etc.
-            text = re.sub(r'\[\d+\]', '', text)
-            # Remove special characters but keep periods and commas
-            text = re.sub(r'[^\w\s.,]', ' ', text)
+            """Remove reference markers [1], [2], etc. and unwanted punctuation."""
+            text = re.sub(r'\[\d+\]', '', text)         # remove references like [1]
+            text = re.sub(r'[^\w\s.,:\-\(\)]', ' ', text) # keep basic punctuation
+            text = re.sub(r'\s+', ' ', text).strip()
             return text
 
-        def extract_name_and_role(sentence):
-            """Extract name and role from a sentence using NLP and patterns"""
+        def store_member(name, role, snippet):
+            """
+            Add a member to `seen_names` dict so we can avoid duplicates
+            and keep track of multiple roles/snippets.
+            """
+            if name not in seen_names:
+                seen_names[name] = {
+                    'roles': set(),
+                    'snippets': []
+                }
+            seen_names[name]['roles'].add(role)
+            seen_names[name]['snippets'].append(snippet)
+
+        def extract_clean_name_and_role(sentence):
+            """
+            1. Locate approximate (name, role) match with regex.
+            2. Run the 'name_candidate' through spaCy NER to get
+            the actual PERSON-labeled sub-portion if it exists.
+            3. Return a tuple (final_name, final_role).
+            """
             doc = self.nlp(sentence)
-            
-            # Common political and organizational roles
-            roles = (r'(president|chairman|leader|secretary|minister|director|'
-                    r'CEO|founder|vice[\-\s]president|treasurer|spokesperson|'
-                    r'chief|head|coordinator)')
-            
-            # Patterns for role identification (using raw strings)
-            role_patterns = [
-                fr"(?P<name>[\w\s]+)\s+(?:is|was|serves\s+as|served\s+as)\s+(?:the\s+)?(?P<role>{roles})",
-                fr"(?P<role>{roles})\s+(?P<name>[\w\s]+)",
-                fr"(?P<name>[\w\s]+),\s+(?:the\s+)?(?P<role>{roles})"
+
+            # Typical roles in politics/orgs
+            roles_regex = (
+                r'(president|chairman|chairperson|leader|secretary|'
+                r'prime minister|chief minister|director|ceo|founder|'
+                r'vice[\-\s]?president|treasurer|spokesperson|chief|head|coordinator)'
+            )
+
+            patterns = [
+                # e.g. "X is the President"
+                fr"(?P<name>[\w\s]+)\s+(?:is|was|became|serves\s+as|served\s+as)\s+(?:the\s+)?(?P<role>{roles_regex})",
+                # e.g. "President X"
+                fr"(?P<role>{roles_regex})\s+(?P<name>[\w\s]+)",
+                # e.g. "X, the President"
+                fr"(?P<name>[\w\s]+),\s+(?:the\s+)?(?P<role>{roles_regex})"
             ]
 
-            # Check for pattern matches
-            for pattern in role_patterns:
-                matches = re.finditer(pattern, sentence, re.IGNORECASE)
-                for match in matches:
-                    name = match.group('name').strip()
-                    role = match.group('role').strip()
-                    
-                    # Verify name using NER
-                    name_doc = self.nlp(name)
-                    if any(ent.label_ == 'PERSON' for ent in name_doc.ents):
-                        return name, role.title()
-            
-            # Fallback to NER for names without clear role patterns
+            for pat in patterns:
+                for match in re.finditer(pat, sentence, flags=re.IGNORECASE):
+                    # The raw chunk from the pattern
+                    raw_name = match.group('name').strip()
+                    raw_role = match.group('role').strip().title()
+
+                    # Pass raw_name to spaCy to find PERSON-labeled sub-entities
+                    candidate_doc = self.nlp(raw_name)
+                    # Collect all PERSON entities within that chunk
+                    person_ents = [ent for ent in candidate_doc.ents if ent.label_ == 'PERSON']
+
+                    # If spaCy found no PERSON entity, skip
+                    if not person_ents:
+                        continue
+
+                    # Otherwise, pick the "best" entity. For instance:
+                    #   - You could pick the largest entity by length,
+                    #   - Or just pick the first if you trust the ordering.
+                    chosen_ent = max(person_ents, key=lambda e: len(e.text))
+
+                    # Clean up the chosen entity's text
+                    final_name = chosen_ent.text.strip()
+
+                    # Optionally remove things like "Mr." or "Dr." if you want:
+                    final_name = re.sub(
+                        r'^(Mr\.|Mrs\.|Ms\.|Dr\.|Prof\.|Shri\.|Smt\.)\s+', '', final_name, flags=re.IGNORECASE
+                    ).strip()
+
+                    return final_name, raw_role
+
+            # Optional fallback: If no pattern matched, but we see a PERSON in the sentence + a known role:
+            # (Be mindful that this can produce more false positives.)
             for ent in doc.ents:
                 if ent.label_ == 'PERSON':
-                    # Look for role keywords near the person mention
-                    role_match = re.search(roles, sentence, re.IGNORECASE)
+                    role_match = re.search(roles_regex, sentence, re.IGNORECASE)
                     if role_match:
-                        return ent.text, role_match.group(1).title()
-            
+                        final_role = role_match.group(1).title()
+                        final_name = re.sub(
+                            r'^(Mr\.|Mrs\.|Ms\.|Dr\.|Prof\.|Shri\.|Smt\.)\s+', '', ent.text, flags=re.IGNORECASE
+                        ).strip()
+                        return final_name, final_role
+
             return None, None
 
-        # Split content into sections
-        sections = wiki_content.split('\n==')
-        relevant_sections = ['leadership', 'members', 'structure', 'organization', 'personnel', 'key people']
+        # ---- MAIN LOGIC ----
+        wiki_content = clean_text(wiki_content)
+        sentences = nltk.sent_tokenize(wiki_content)
 
-        def process_section(section_text):
-            """Process a section of text to extract member information"""
-            cleaned_text = clean_text(section_text)
-            sentences = sent_tokenize(cleaned_text)
-            
-            for sentence in sentences:
-                if len(sentence.split()) < 5:  # Skip very short sentences
-                    continue
-                    
-                name, role = extract_name_and_role(sentence)
-                if name and name not in seen_names:
-                    seen_names.add(name)
-                    members.append({
-                        'name': name,
-                        'role': role,
-                        'bio': sentence.strip()
-                    })
+        for sent in sentences:
+            # if sentence is too short, skip
+            if len(sent.split()) < 5:
+                continue
+            name_role = extract_clean_name_and_role(sent)
+            if name_role and all(name_role):
+                final_name, final_role = name_role
+                # store snippet as a fallback bio if needed
+                store_member(final_name, final_role, sent)
 
-        # First process the introduction (usually contains key members)
-        intro_section = sections[0]
-        process_section(intro_section)
+        # Convert from seen_names to a final list
+        final_members = []
+        for person_name, data in seen_names.items():
+            # Combine all roles
+            combined_roles = ", ".join(sorted(data['roles']))
+            # Take the first snippet if you like (or merge them)
+            sample_snippet = data['snippets'][0]
+            if len(sample_snippet) > 500:
+                sample_snippet = sample_snippet[:500] + "..."
 
-        # Then process other relevant sections
-        for section in sections[1:]:
-            section_title = section.split('\n')[0].lower()
-            if any(keyword in section_title for keyword in relevant_sections):
-                process_section(section)
+            final_members.append({
+                'name': person_name,
+                'role': combined_roles,
+                'bio': sample_snippet
+            })
 
-        # Post-process the extracted members
-        processed_members = []
-        for member in members:
-            if member['role']:  # Only include members with identified roles
-                # Clean up the data
-                processed_member = {
-                    'name': re.sub(r'\s+', ' ', member['name']).strip(),  # Remove extra spaces
-                    'role': member['role'].replace('The ', '').strip(),
-                    'bio': member['bio'][:500] if len(member['bio']) > 500 else member['bio']  # Limit bio length
-                }
-                
-                # Remove common titles from names (using raw strings)
-                name = processed_member['name']
-                for title in ['Dr.', 'Mr.', 'Mrs.', 'Ms.', 'Prof.', 'Sir', 'Dame']:
-                    name = re.sub(fr'^{title}\s+', '', name)
-                processed_member['name'] = name
-                
-                processed_members.append(processed_member)
+        return final_members
 
-        return processed_members
 
     def store_organization_data(self, org_name, wiki_data, news_articles, members):
         """Store all collected data in the database."""
