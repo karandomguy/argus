@@ -28,7 +28,6 @@ def generate_report(request: ReportRequest):
         report_data = report_generator.generate_detailed_report(request.topic, request.max_results)
         if not report_data["success"]:
             raise HTTPException(status_code=404, detail=report_data["report"])
-        # Optionally save the report
         save_report(report_data, f"{request.topic.replace(' ', '_').lower()}_report.txt")
         return report_data
     except Exception as e:

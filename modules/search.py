@@ -122,20 +122,3 @@ def search_and_extract(query, max_results=2):
         full_results.append(result)
     
     return full_results
-
-# Example usage
-if __name__ == "__main__":
-    query = "Python"
-    results = search_and_extract(query, max_results=2)
-    
-    for i, result in enumerate(results, 1):
-        print(f"\nResult {i}:")
-        print(f"Title: {result['title']}")
-        print(f"URL: {result['link']}")
-        print(f"Domain: {result['domain']}")
-        if result['error']:
-            print(f"Error: {result['error']}")
-        else:
-            print(f"Content Length: {result['metadata']['length']} words")
-            print(result['extracted_content'])
-        print("-" * 80)
