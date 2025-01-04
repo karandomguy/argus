@@ -1,0 +1,11 @@
+beautifulsoup4==4.12.3
+fastapi==0.115.6
+groq==0.13.1
+newsapi==0.1.1
+newsapi_python==0.2.7
+nltk==3.9.1
+pydantic==2.10.4
+python-dotenv==1.0.1
+Requests==2.32.3
+spacy==3.8.3
+wikipedia==1.4.0
