@@ -207,7 +207,6 @@ Argus/
 │   ├── search.py          # Performs web searches and content extraction
 │   └── __init__.py        # Package initializer
 ├── requirements.txt       # Python dependencies
-├── .env                   # API keys and configuration
 └── README.md              # Project documentation
 ```
 
