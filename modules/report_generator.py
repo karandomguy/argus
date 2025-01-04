@@ -3,7 +3,7 @@ from groq import Groq
 from dotenv import load_dotenv
 from typing import List, Dict
 import json
-from search import search_and_extract  # Using the enhanced search function from previous code
+from modules.search import search_and_extract  # Using the enhanced search function from previous code
 
 load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
