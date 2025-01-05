@@ -9,13 +9,12 @@ Argus is a Python-based AI Research Agent designed to assist with web search, re
 - **Web Search and Report Generation:**
   - Performs web searches on any topic and generates detailed, well-structured reports.
   - Includes source links for all referenced information to ensure transparency.
+  - Uses BeautifulSoup and spaCy for intelligent content parsing and processing.
 - **Organizational Data Fetch and Storage:**
   - Fetches open-source details about political organizations, including news, posts, and wiki data.
   - Retrieves detailed information about the organization's leaders and members.
   - Stores all data in an SQLite database for future reference.
 - **FastAPI Framework:** Provides a RESTful API for intuitive interaction.
-- **Content Extraction:** Uses BeautifulSoup and spaCy for intelligent content parsing and processing.
-
 ---
 
 ## Installation and Setup
@@ -31,7 +30,7 @@ Argus is a Python-based AI Research Agent designed to assist with web search, re
 
 1. **Clone the Repository:**
    ```bash
-   git clone https://github.com/your-repo/argus.git
+   git clone https://github.com/karandomguy/argus.git
    cd argus
    ```
 
@@ -56,13 +55,6 @@ Argus is a Python-based AI Research Agent designed to assist with web search, re
    python -m spacy download en_core_web_sm
    python -m nltk.downloader punkt
    ```
-
-5. **Initialize the Database:**
-   Prepare the SQLite database by running:
-   ```bash
-   python -m modules.org_data
-   ```
-
 ---
 
 ## How to Use
@@ -122,20 +114,18 @@ The API will be accessible at `http://127.0.0.1:8000`.
 - **Response:**
   ```json
   {
-    "results": [
-      {
-        "title": "Introduction to AI",
-        "link": "https://example.com/ai",
-        "snippet": "An overview of artificial intelligence...",
-        "extracted_content": "Full page content here",
-        "metadata": {
-          "title": "Introduction to AI",
-          "length": 500,
-          "url": "https://example.com/ai",
-          "domain": "example.com"
-        }
-      }
-    ]
+  "title": "Introduction to Artificial Intelligence (AI) | Coursera",
+  "link": "https://www.coursera.org/learn/introduction-to-ai",
+  "snippet": "The course includes hands-on labs and a project, providing an opportunity to explore AI's use cases and applications. You will also hear from expert ...",
+  "domain": "www.coursera.org",
+  "extracted_content": "Full content extracted from the webpage...",
+  "metadata": {
+    "title": "Introduction to Artificial Intelligence (AI) | Coursera",
+    "length": 1503,
+    "url": "https://www.coursera.org/learn/introduction-to-ai",
+    "domain": "www.coursera.org"
+  },
+  "error": null
   }
   ```
 
@@ -146,13 +136,13 @@ The API will be accessible at `http://127.0.0.1:8000`.
 - **Request Body:**
   ```json
   {
-    "organization_name": "Google"
+    "organization_name": "BJP"
   }
   ```
 - **Response:**
   ```json
   {
-    "message": "Data for organization 'Google' processed successfully."
+    "message": "Data for organization 'BJP' processed successfully."
   }
   ```
 
@@ -204,8 +194,7 @@ Argus/
 ├── modules/               # Contains project modules
 │   ├── org_data.py        # Manages organization data
 │   ├── report_generator.py # Generates reports using Groq API
-│   ├── search.py          # Performs web searches and content extraction
-│   └── __init__.py        # Package initializer
+│   └── search.py          # Performs web searches and content extraction
 ├── requirements.txt       # Python dependencies
 └── README.md              # Project documentation
 ```
@@ -230,20 +219,3 @@ Contributions are welcome! Please fork the repository, make your changes, and su
 - BeautifulSoup for web scraping
 
 ---
-
-## Expected Deliverables
-- **Sample Report:** A generated report showcasing detailed analysis on a chosen topic.
-- **Database Snapshots:** Schema and sample data for organizational leader/member information.
-- **Live Demonstration Video:** Optional but recommended for showcasing the project's functionality.
-
----
-
-## Evaluation Criteria
-1. **Accuracy of Data:** Reliability and up-to-dateness of the fetched information.
-2. **Completeness of Reports and Database:** Inclusion of all necessary details in reports and data storage.
-3. **Code Quality and Documentation:** Readability, maintainability, and clarity of code and documentation.
-4. **Innovation:** Additional features or creative solutions beyond requirements.
-5. **Ease of Use:** Intuitiveness and user-friendliness of the system.
-
----
-
