@@ -62,7 +62,7 @@ def fetch_page_content(url, timeout=10):
     try:
         resp = requests.get(url, headers=headers, timeout=timeout)
         resp.raise_for_status()
-        resp.encoding = resp.apparent_encoding  # Handle character encoding better
+        resp.encoding = resp.apparent_encoding  
     except requests.exceptions.RequestException as e:
         print(f"Failed to fetch content from {url}: {e}")
         return {"error": str(e), "content": "", "metadata": {}}
